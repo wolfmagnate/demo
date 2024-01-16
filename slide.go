@@ -1,7 +1,11 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"math"
+	"os"
 	"strings"
 
 	"github.com/muesli/termenv"
@@ -15,424 +19,34 @@ const rightCore = `▄▄
 ▀▀ `
 
 // 線を頂点で持つ
-type vertex struct {
-	x int
-	y int
+type Vertex struct {
+	X int `json:"x"`
+	Y int `json:"y"`
 }
 
-var rightLines = [][]vertex{
-	{
-		vertex{
-			x: 86,
-			y: 15,
-		},
-		vertex{
-			x: 86,
-			y: 8,
-		},
-		vertex{
-			x: 90,
-			y: 4,
-		},
-		vertex{
-			x: 90,
-			y: 0,
-		},
-	},
-	{
-		vertex{
-			x: 86,
-			y: 19,
-		},
-		vertex{
-			x: 86,
-			y: 26,
-		},
-		vertex{
-			x: 90,
-			y: 30,
-		},
-		vertex{
-			x: 90,
-			y: 34,
-		},
-	},
-	{
-		vertex{
-			x: 87,
-			y: 15,
-		},
-		vertex{
-			x: 88,
-			y: 15,
-		},
-		vertex{
-			x: 89,
-			y: 14,
-		},
-		vertex{
-			x: 90,
-			y: 14,
-		},
-		vertex{
-			x: 91,
-			y: 13,
-		},
-		vertex{
-			x: 92,
-			y: 13,
-		},
-		vertex{
-			x: 93,
-			y: 12,
-		},
-		vertex{
-			x: 94,
-			y: 12,
-		},
-		vertex{
-			x: 95,
-			y: 11,
-		},
-		vertex{
-			x: 96,
-			y: 11,
-		},
-		vertex{
-			x: 97,
-			y: 10,
-		},
-		vertex{
-			x: 98,
-			y: 10,
-		},
-		vertex{
-			x: 108,
-			y: 0,
-		},
-	},
-	{
-		vertex{
-			x: 87,
-			y: 19,
-		},
-		vertex{
-			x: 88,
-			y: 19,
-		},
-		vertex{
-			x: 89,
-			y: 20,
-		},
-		vertex{
-			x: 90,
-			y: 20,
-		},
-		vertex{
-			x: 91,
-			y: 21,
-		},
-		vertex{
-			x: 92,
-			y: 21,
-		},
-		vertex{
-			x: 93,
-			y: 22,
-		},
-		vertex{
-			x: 94,
-			y: 22,
-		},
-		vertex{
-			x: 95,
-			y: 23,
-		},
-		vertex{
-			x: 96,
-			y: 23,
-		},
-		vertex{
-			x: 97,
-			y: 24,
-		},
-		vertex{
-			x: 98,
-			y: 24,
-		},
-		vertex{
-			x: 108,
-			y: 34,
-		},
-	},
-	{
-		vertex{
-			x: 87,
-			y: 16,
-		},
-		vertex{
-			x: 93,
-			y: 16,
-		},
-		vertex{
-			x: 95,
-			y: 14,
-		},
-		vertex{
-			x: 105,
-			y: 14,
-		},
-		vertex{
-			x: 112,
-			y: 7,
-		},
-		vertex{
-			x: 121,
-			y: 7,
-		},
-		vertex{
-			x: 128,
-			y: 0,
-		},
-	},
-	{
-		vertex{
-			x: 87,
-			y: 18,
-		},
-		vertex{
-			x: 93,
-			y: 18,
-		},
-		vertex{
-			x: 95,
-			y: 20,
-		},
-		vertex{
-			x: 105,
-			y: 20,
-		},
-		vertex{
-			x: 112,
-			y: 27,
-		},
-		vertex{
-			x: 121,
-			y: 27,
-		},
-		vertex{
-			x: 128,
-			y: 34,
-		},
-	},
+func readVertex(jsonPath string) ([][]Vertex, error) {
+	file, err := os.Open(jsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("error opening JSON file: %w", err)
+	}
+	defer file.Close()
+
+	byteValue, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("error reading JSON file: %w", err)
+	}
+
+	var vertices [][]Vertex
+	if err := json.Unmarshal(byteValue, &vertices); err != nil {
+		return nil, fmt.Errorf("error unmarshalling JSON: %w", err)
+	}
+
+	return vertices, nil
 }
 
-var leftLines = [][]vertex{
-	{
-		vertex{
-			x: 82,
-			y: 15,
-		},
-		vertex{
-			x: 82,
-			y: 8,
-		},
-		vertex{
-			x: 78,
-			y: 4,
-		},
-		vertex{
-			x: 78,
-			y: 0,
-		},
-	},
-	{
-		vertex{
-			x: 82,
-			y: 19,
-		},
-		vertex{
-			x: 82,
-			y: 26,
-		},
-		vertex{
-			x: 78,
-			y: 30,
-		},
-		vertex{
-			x: 78,
-			y: 34,
-		},
-	},
-	{
-		vertex{
-			x: 81,
-			y: 15,
-		},
-		vertex{
-			x: 80,
-			y: 15,
-		},
-		vertex{
-			x: 79,
-			y: 14,
-		},
-		vertex{
-			x: 78,
-			y: 14,
-		},
-		vertex{
-			x: 77,
-			y: 13,
-		},
-		vertex{
-			x: 76,
-			y: 13,
-		},
-		vertex{
-			x: 75,
-			y: 12,
-		},
-		vertex{
-			x: 74,
-			y: 12,
-		},
-		vertex{
-			x: 73,
-			y: 11,
-		},
-		vertex{
-			x: 72,
-			y: 11,
-		},
-		vertex{
-			x: 71,
-			y: 10,
-		},
-		vertex{
-			x: 70,
-			y: 10,
-		},
-		vertex{
-			x: 60,
-			y: 0,
-		},
-	},
-	{
-		vertex{
-			x: 81,
-			y: 19,
-		},
-		vertex{
-			x: 80,
-			y: 19,
-		},
-		vertex{
-			x: 79,
-			y: 20,
-		},
-		vertex{
-			x: 78,
-			y: 20,
-		},
-		vertex{
-			x: 77,
-			y: 21,
-		},
-		vertex{
-			x: 76,
-			y: 21,
-		},
-		vertex{
-			x: 75,
-			y: 22,
-		},
-		vertex{
-			x: 74,
-			y: 22,
-		},
-		vertex{
-			x: 73,
-			y: 23,
-		},
-		vertex{
-			x: 72,
-			y: 23,
-		},
-		vertex{
-			x: 71,
-			y: 24,
-		},
-		vertex{
-			x: 70,
-			y: 24,
-		},
-		vertex{
-			x: 60,
-			y: 34,
-		},
-	},
-	{
-		vertex{
-			x: 81,
-			y: 16,
-		},
-		vertex{
-			x: 75,
-			y: 16,
-		},
-		vertex{
-			x: 73,
-			y: 14,
-		},
-		vertex{
-			x: 63,
-			y: 14,
-		},
-		vertex{
-			x: 56,
-			y: 7,
-		},
-		vertex{
-			x: 47,
-			y: 7,
-		},
-		vertex{
-			x: 40,
-			y: 0,
-		},
-	},
-	{
-		vertex{
-			x: 81,
-			y: 18,
-		},
-		vertex{
-			x: 75,
-			y: 18,
-		},
-		vertex{
-			x: 73,
-			y: 20,
-		},
-		vertex{
-			x: 63,
-			y: 20,
-		},
-		vertex{
-			x: 56,
-			y: 27,
-		},
-		vertex{
-			x: 47,
-			y: 27,
-		},
-		vertex{
-			x: 40,
-			y: 34,
-		},
-	},
-}
+var rightLines, _ = readVertex("rightLine.json")
+
+var leftLines, _ = readVertex("leftLine.json")
 
 const width = 170
 const height = 35
@@ -469,14 +83,14 @@ func Init() *SlideModel {
 	for i := 0; i < height; i++ {
 		s[i] = make([]termenv.Color, width)
 		for x := 0; x < width; x++ {
-			s[i][x] = termenv.ANSI.Color("#FFFFFF")
+			s[i][x] = termenv.TrueColor.Color("#FFFFFF")
 		}
 	}
 	b := make([][]termenv.Color, height)
 	for i := 0; i < height; i++ {
 		b[i] = make([]termenv.Color, width)
 		for x := 0; x < width; x++ {
-			b[i][x] = termenv.ANSI.Color("#696969")
+			b[i][x] = termenv.TrueColor.Color("#696969")
 		}
 	}
 	return &SlideModel{
@@ -491,21 +105,21 @@ func Init() *SlideModel {
 func (m *SlideModel) Update() *SlideModel {
 	switch m.AnimationType {
 	case Dark:
-		m.Ratio += 0.1
+		m.Ratio += 0.03
 		m.Ratio += m.Ratio / 12
 		if m.Ratio >= 1 {
 			m.Ratio = 0
 			m.AnimationType = Point
 		}
 	case Point:
-		m.Ratio += 0.1
-		m.Ratio += m.Ratio / 12
+		m.Ratio += 0.07
 		if m.Ratio >= 1 {
 			m.Ratio = 0
 			m.AnimationType = Open
 		}
 	case Open:
-		m.Ratio = 1
+		m.Ratio += 0.01
+		m.Ratio += m.Ratio / 20
 		if m.Ratio >= 10 {
 			m.Ratio = 0
 			m.AnimationType = Dark
@@ -514,29 +128,29 @@ func (m *SlideModel) Update() *SlideModel {
 	return m
 }
 
-func renderPoints(v1, v2 vertex) []vertex {
-	diffX := int(math.Abs(float64(v2.x - v1.x)))
-	diffY := int(math.Abs(float64(v2.y - v1.y)))
+func renderPoints(v1, v2 Vertex) []Vertex {
+	diffX := int(math.Abs(float64(v2.X - v1.X)))
+	diffY := int(math.Abs(float64(v2.Y - v1.Y)))
 	dirX := 0
 	dirY := 0
 	if diffX > 0 {
-		dirX = (v2.x - v1.x) / diffX
+		dirX = (v2.X - v1.X) / diffX
 	}
 	if diffY > 0 {
-		dirY = (v2.y - v1.y) / diffY
+		dirY = (v2.Y - v1.Y) / diffY
 	}
-	tmp := vertex{
-		x: v1.x,
-		y: v1.y,
+	tmp := Vertex{
+		X: v1.X,
+		Y: v1.Y,
 	}
-	result := make([]vertex, 0)
-	for tmp.x != v2.x || tmp.y != v2.y {
-		result = append(result, vertex{
-			tmp.x,
-			tmp.y,
+	result := make([]Vertex, 0)
+	for tmp.X != v2.X || tmp.Y != v2.Y {
+		result = append(result, Vertex{
+			tmp.X,
+			tmp.Y,
 		})
-		tmp.x += dirX
-		tmp.y += dirY
+		tmp.X += dirX
+		tmp.Y += dirY
 	}
 	return result
 }
@@ -563,29 +177,46 @@ func (m *SlideModel) clearRight(border int) {
 	}
 }
 
+func (m *SlideModel) setLeftBackground(border int, color string) {
+	for y := 0; y < height; y++ {
+		for x := 0; x <= border; x++ {
+			m.background[y][x] = termenv.TrueColor.Color(color)
+		}
+	}
+}
+func (m *SlideModel) setRightBackground(border int, color string) {
+	for y := 0; y < height; y++ {
+		for x := border; x < width; x++ {
+			m.background[y][x] = termenv.TrueColor.Color(color)
+		}
+	}
+}
+
 func (m *SlideModel) renderLines(ratio float64) {
 	offset := int(math.Round(width / 2 * ratio))
 	m.clearLeft(width/2 - offset)
+	m.setLeftBackground(width/2-offset-1, "#252525")
 	for _, line := range leftLines {
 		for i := 0; i < len(line)-1; i++ {
 			ps := renderPoints(line[i], line[i+1])
 			for _, p := range ps {
-				if p.x <= offset {
+				if p.X <= offset {
 					continue
 				}
-				m.chars[p.y][p.x-offset] = "█"
+				m.chars[p.Y][p.X-offset] = "█"
 			}
 		}
 	}
 	m.clearRight(width/2 + 1 + offset)
+	m.setRightBackground(width/2-1+offset, "#252525")
 	for _, line := range rightLines {
 		for i := 0; i < len(line)-1; i++ {
 			ps := renderPoints(line[i], line[i+1])
 			for _, p := range ps {
-				if p.x+offset >= width {
+				if p.X+offset >= width {
 					continue
 				}
-				m.chars[p.y][p.x+offset] = "█"
+				m.chars[p.Y][p.X+offset] = "█"
 			}
 		}
 	}
@@ -598,7 +229,7 @@ func (m *SlideModel) renderLineColorWithOffset(ratio, offsetRatio float64) {
 	offset := int(math.Round(width / 2 * offsetRatio))
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			m.foreground[y][x] = termenv.ANSI.Color("#FFFFFF")
+			m.foreground[y][x] = termenv.TrueColor.Color("#FFFFFF")
 		}
 	}
 	for _, line := range leftLines {
@@ -612,7 +243,7 @@ func (m *SlideModel) renderLineColorWithOffset(ratio, offsetRatio float64) {
 func (m *SlideModel) renderPointColor(ratio float64) {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			m.foreground[y][x] = termenv.ANSI.Color("#FFFFFF")
+			m.foreground[y][x] = termenv.TrueColor.Color("#FFFFFF")
 		}
 	}
 	for _, line := range leftLines {
@@ -623,8 +254,8 @@ func (m *SlideModel) renderPointColor(ratio float64) {
 	}
 }
 
-func (m *SlideModel) changeStyleAtPoint(line []vertex, ratio float64) {
-	linePoints := make([]vertex, 0)
+func (m *SlideModel) changeStyleAtPoint(line []Vertex, ratio float64) {
+	linePoints := make([]Vertex, 0)
 	for i := 0; i < len(line)-1; i++ {
 		ps := renderPoints(line[i], line[i+1])
 		linePoints = append(linePoints, ps...)
@@ -634,11 +265,22 @@ func (m *SlideModel) changeStyleAtPoint(line []vertex, ratio float64) {
 		return
 	}
 	target := linePoints[index]
-	m.foreground[target.y][target.x] = termenv.ANSI.Color("#00ff7f")
+	m.foreground[target.Y][target.X] = termenv.TrueColor.Color("#00ff7f")
 }
 
-func (m *SlideModel) changeStyleLine(line []vertex, ratio float64, offset int) {
-	linePoints := make([]vertex, 0)
+func lerp(a, b, t float64) float64 {
+	return a + (b-a)*t
+}
+
+func lerpColor(startColor, endColor [3]int, t float64) string {
+	red := int(lerp(float64(startColor[0]), float64(endColor[0]), t))
+	green := int(lerp(float64(startColor[1]), float64(endColor[1]), t))
+	blue := int(lerp(float64(startColor[2]), float64(endColor[2]), t))
+
+	return fmt.Sprintf("#%02x%02x%02x", red, green, blue)
+}
+func (m *SlideModel) changeStyleLine(line []Vertex, ratio float64, offset int) {
+	linePoints := make([]Vertex, 0)
 	for i := 0; i < len(line)-1; i++ {
 		ps := renderPoints(line[i], line[i+1])
 		linePoints = append(linePoints, ps...)
@@ -647,25 +289,52 @@ func (m *SlideModel) changeStyleLine(line []vertex, ratio float64, offset int) {
 	if index >= len(linePoints) {
 		index = len(linePoints) - 1
 	}
+	endColor := [3]int{168, 168, 255} // #a8a8ff
+	startColor := [3]int{0, 255, 127} // #00ff7f
+
 	for i := 0; i <= index; i++ {
 		target := linePoints[i]
-		if target.x+offset < 0 || target.x+offset >= width {
+		if target.X+offset < 0 || target.X+offset >= width {
 			continue
 		}
-		m.foreground[target.y][target.x+offset] = termenv.ANSI.Color("#00ff7f")
+		t := float64(i) / float64(len(linePoints)-1)
+		color := lerpColor(startColor, endColor, t)
+		m.foreground[target.Y][target.X+offset] = termenv.TrueColor.Color(color)
 	}
 }
 
-func (m *SlideModel) renderCore(core string, offset, startColumn int) {
+func (m *SlideModel) renderCore(core string, offset, startColumn, startRow int) {
 	lines := strings.Split(core, "\n")
 
 	for i, line := range lines {
 		for j, c := range strings.Split(line, "") {
 			column := j + startColumn + offset
+			row := i + startRow
 			if column < 0 || column >= width {
 				continue
 			}
-			m.chars[i+height/2-1][column] = string(c)
+			if row < 0 || row >= width {
+				continue
+			}
+			m.chars[row][column] = string(c)
+		}
+	}
+}
+
+func (m *SlideModel) renderCoreColor(core, color string, offset, startColumn, startRow int) {
+	lines := strings.Split(core, "\n")
+
+	for i, line := range lines {
+		for j, _ := range strings.Split(line, "") {
+			column := j + startColumn + offset
+			row := i + startRow
+			if column < 0 || column >= width {
+				continue
+			}
+			if row < 0 || row >= width {
+				continue
+			}
+			m.foreground[row][column] = termenv.TrueColor.Color(color)
 		}
 	}
 }
@@ -673,16 +342,31 @@ func (m *SlideModel) renderCore(core string, offset, startColumn int) {
 func (m *SlideModel) renderCenter(ratio float64) {
 	offset := int(math.Round(width / 2 * ratio))
 
-	m.renderCore(leftCore, -offset, 82)
+	m.renderCore(leftCore, -offset, 82, height/2-1)
 
-	m.renderCore(rightCore, offset, 84)
+	m.renderCore(rightCore, offset, 84, height/2-1)
+}
+
+func (m *SlideModel) renderCenterColor(ratio float64) {
+	offset := int(math.Round(width / 2 * ratio))
+
+	m.renderCoreColor(leftCore, "#7FFF7F", -offset, 82, height/2-1)
+
+	m.renderCoreColor(rightCore, "#7FFF7F", offset, 84, height/2-1)
 }
 
 func (m *SlideModel) renderLogo() {
 	logo := getLogo()
 	offset := 10
-	m.renderCore(logo, -offset, 60)
+	m.renderCore(logo, -offset, 50, height/2-5)
+}
 
+func (m *SlideModel) renderLogoColor() {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			m.background[y][x] = termenv.TrueColor.Color("#FF99CC")
+		}
+	}
 }
 
 func (m *SlideModel) View() string {
@@ -695,6 +379,7 @@ func (m *SlideModel) View() string {
 		m.renderLines(0)
 		m.renderCenter(0)
 		m.renderPointColor(m.Ratio)
+		m.renderCenterColor(0)
 	case Light:
 		m.renderLines(0)
 		m.renderCenter(0)
@@ -702,9 +387,11 @@ func (m *SlideModel) View() string {
 	case Open:
 		m.clearAll()
 		m.renderLogo()
+		m.renderLogoColor()
 		m.renderLines(m.Ratio)
 		m.renderCenter(m.Ratio)
 		m.renderLineColorWithOffset(5*m.Ratio, m.Ratio)
+		m.renderCenterColor(m.Ratio)
 	}
 
 	b := strings.Builder{}
