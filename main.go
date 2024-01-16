@@ -11,7 +11,7 @@ import (
 
 func main() {
 	runewidth.DefaultCondition.EastAsianWidth = false
-	if _, err := tea.NewProgram(model{slide: Init()}, tea.WithFPS(30)).Run(); err != nil {
+	if _, err := tea.NewProgram(model{slide: Init()}, tea.WithFPS(25)).Run(); err != nil {
 		fmt.Println("Oh no!", err)
 		os.Exit(1)
 	}
@@ -46,7 +46,7 @@ func (m model) View() string {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(33*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(44*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }

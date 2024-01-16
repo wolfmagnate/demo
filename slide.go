@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/muesli/termenv"
@@ -60,12 +61,16 @@ const (
 	Point
 	Light
 	Open
+	Progress
+	Horizontal
+	Loopback
 )
 
 // slideModel はスライドのモデルを表す構造体です。
 type SlideModel struct {
 	AnimationType AnimationType // AnimationType は列挙型のように振る舞います。
 	Ratio         float64       // Ratio は比率を表すfloat型です。
+	ratio         float64
 	chars         [][]string
 	foreground    [][]termenv.Color
 	background    [][]termenv.Color
@@ -97,6 +102,7 @@ func Init() *SlideModel {
 		AnimationType: Dark,
 		Ratio:         0.0,
 		chars:         c,
+		ratio:         0.0,
 		foreground:    s,
 		background:    b,
 	}
@@ -111,19 +117,43 @@ func (m *SlideModel) Update() *SlideModel {
 			m.Ratio = 0
 			m.AnimationType = Point
 		}
+		m.ratio = m.Ratio
 	case Point:
 		m.Ratio += 0.07
 		if m.Ratio >= 1 {
 			m.Ratio = 0
 			m.AnimationType = Open
 		}
+		m.ratio = m.Ratio
 	case Open:
-		m.Ratio += 0.01
-		m.Ratio += m.Ratio / 20
-		if m.Ratio >= 10 {
+		m.Ratio += 0.05
+		if m.Ratio >= 1 {
+			m.Ratio = 0
+			m.AnimationType = Progress
+		}
+		m.ratio = Ease3(m.Ratio)
+	case Progress:
+		m.Ratio += 0.04
+		if m.Ratio >= 1 {
+			m.Ratio = 0
+			m.AnimationType = Horizontal
+		}
+		m.ratio = Ease1(m.Ratio)
+	case Horizontal:
+		m.Ratio += 0.02
+		if m.Ratio >= 1 {
+			m.Ratio = 0
+			m.AnimationType = Loopback
+		}
+		m.ratio = Ease2(m.Ratio)
+	case Loopback:
+		m.Ratio += 0.04
+		if m.Ratio >= 1.1 {
 			m.Ratio = 0
 			m.AnimationType = Dark
 		}
+		m.ratio = Ease2(m.Ratio)
+		m.ratio = m.Ratio
 	}
 	return m
 }
@@ -279,6 +309,27 @@ func lerpColor(startColor, endColor [3]int, t float64) string {
 
 	return fmt.Sprintf("#%02x%02x%02x", red, green, blue)
 }
+
+// parseColor は文字列形式のカラーコードを解析し、RGB値を表すintのスライスを返します。
+func parseColor(hexColor string) ([3]int, error) {
+	if len(hexColor) != 7 || hexColor[0] != '#' {
+		return [3]int{}, fmt.Errorf("invalid color format")
+	}
+	red, err := strconv.ParseInt(hexColor[1:3], 16, 64)
+	if err != nil {
+		return [3]int{}, fmt.Errorf("error parsing red component: %v", err)
+	}
+	green, err := strconv.ParseInt(hexColor[3:5], 16, 64)
+	if err != nil {
+		return [3]int{}, fmt.Errorf("error parsing green component: %v", err)
+	}
+	blue, err := strconv.ParseInt(hexColor[5:7], 16, 64)
+	if err != nil {
+		return [3]int{}, fmt.Errorf("error parsing blue component: %v", err)
+	}
+	return [3]int{int(red), int(green), int(blue)}, nil
+}
+
 func (m *SlideModel) changeStyleLine(line []Vertex, ratio float64, offset int) {
 	linePoints := make([]Vertex, 0)
 	for i := 0; i < len(line)-1; i++ {
@@ -361,10 +412,341 @@ func (m *SlideModel) renderLogo() {
 	m.renderCore(logo, -offset, 50, height/2-5)
 }
 
-func (m *SlideModel) renderLogoColor() {
+func (m *SlideModel) renderLogoBackgroundColor() {
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			m.background[y][x] = termenv.TrueColor.Color("#FF99CC")
+		}
+	}
+}
+
+func (m *SlideModel) renderLogoColor(ratio float64, color1, color2 string, colorOffset float64) {
+	logo := getLogo()
+	lines := strings.Split(logo, "\n")
+	offset := -10
+	startColumn := 50
+	startRow := height/2 - 5
+
+	rgb1, _ := parseColor(color1)
+	rgb2, _ := parseColor(color2)
+
+	for i, line := range lines {
+		chars := strings.Split(line, "")
+		for j, _ := range chars {
+			column := j + startColumn + offset
+			row := i + startRow
+			if column < 0 || column >= width {
+				continue
+			}
+			if row < 0 || row >= width {
+				continue
+			}
+			colorRatio := float64(j) / float64((len(chars) - 1))
+			if colorRatio > ratio {
+				m.foreground[row][column] = termenv.TrueColor.Color("#ffffff")
+				continue
+			}
+			color := lerpColor(rgb1, rgb2, colorRatio)
+			m.foreground[row][column] = termenv.TrueColor.Color(color)
+		}
+	}
+}
+
+func clamp(v float64) float64 {
+	if v > 1 {
+		return 1
+	}
+	if v < 0 {
+		return 0
+	}
+	return v
+}
+
+func (m *SlideModel) renderHorizontalHeader(ratio float64) {
+	width1, width2, width3 := getHorizontalWidths(ratio)
+
+	leftBars := strings.Split(barLeft, "\n")
+	rightBars := strings.Split(barRight, "\n")
+	barWidth := 10
+	for y := 0; y < 6; y++ {
+		cnt := 0
+		l := strings.Split(rightBars[y%6], "")
+
+		for x := width1; x < width1+barWidth; x++ {
+			if x >= width || x < 0 {
+				continue
+			}
+			m.chars[y][x] = string(l[cnt])
+			cnt++
+		}
+	}
+	for y := 30; y < 35; y++ {
+		cnt := 0
+		l := strings.Split(rightBars[y%6], "")
+		for x := width1; x < width1+barWidth; x++ {
+			if x >= width || x < 0 {
+				continue
+			}
+			m.chars[y][x] = string(l[cnt])
+			cnt++
+		}
+	}
+	for y := 6; y < 12; y++ {
+		cnt := 0
+		l := strings.Split(leftBars[y%6], "")
+		for x := width - width2 - barWidth; x < width1-width2; x++ {
+			if x >= width || x < 0 {
+				continue
+			}
+			m.chars[y][x] = string(l[cnt])
+			cnt++
+		}
+	}
+	for y := 24; y < 30; y++ {
+		cnt := 0
+		l := strings.Split(leftBars[y%6], "")
+		for x := width - width2 - barWidth; x < width1-width2; x++ {
+			if x >= width || x < 0 {
+				continue
+			}
+			m.chars[y][x] = string(l[cnt])
+			cnt++
+		}
+	}
+	if width3 == 0 {
+		return
+	}
+	for y := 12; y < 18; y++ {
+		cnt := 0
+		l := strings.Split(rightBars[y%6], "")
+		for x := width3; x < width3+barWidth; x++ {
+			if x >= width || x < 0 {
+				continue
+			}
+			m.chars[y][x] = string(l[cnt])
+			cnt++
+		}
+	}
+	for y := 18; y < 24; y++ {
+		cnt := 0
+		l := strings.Split(rightBars[y%6], "")
+		for x := width3; x < width3+barWidth; x++ {
+			if x >= width || x < 0 {
+				continue
+			}
+			m.chars[y][x] = string(l[cnt])
+			cnt++
+		}
+	}
+}
+
+func (m *SlideModel) renderHoritontalLine(ratio float64) {
+	// まずはそれぞれの線の比率を計算する
+	width1, width2, width3 := getHorizontalWidths(ratio)
+
+	// 左から右へ
+	// y=0,1,...5とy=30,31,...35
+	// x=0,1,...width1
+	for y := 0; y < 6; y++ {
+		for x := 0; x < width1; x++ {
+			m.chars[y][x] = "█"
+		}
+	}
+	for y := 30; y < 35; y++ {
+		for x := 0; x < width1; x++ {
+			m.chars[y][x] = "█"
+		}
+	}
+
+	for y := 6; y < 12; y++ {
+		for x := width - 1; x >= width-width2; x-- {
+			m.chars[y][x] = "█"
+		}
+	}
+	for y := 24; y < 30; y++ {
+		for x := width - 1; x >= width-width2; x-- {
+			m.chars[y][x] = "█"
+		}
+	}
+
+	for y := 12; y < 18; y++ {
+		for x := 0; x < width3; x++ {
+			m.chars[y][x] = "█"
+		}
+	}
+	for y := 18; y < 24; y++ {
+		for x := 0; x < width3; x++ {
+			m.chars[y][x] = "█"
+		}
+	}
+}
+
+func getHorizontalWidths(ratio float64) (int, int, int) {
+	var ratio1, ratio2, ratio3 = 0.0, 0.0, 0.0
+	if ratio > 0.33 {
+		ratio1 = 1.0
+	} else {
+		ratio1 = ratio * 3
+	}
+	if ratio <= 0.33 {
+		ratio2 = 0.0
+	} else if ratio > 0.66 {
+		ratio2 = 1.0
+	} else {
+		ratio2 = (ratio - 0.33) * 3
+	}
+	if ratio <= 0.66 {
+		ratio3 = 0.0
+	} else {
+		ratio3 = (ratio - 0.66) * 3
+	}
+	ratio1 = clamp(ratio1)
+	ratio2 = clamp(ratio2)
+	ratio3 = clamp(ratio3)
+	width1 := int(width * ratio1)
+	width2 := int(width * ratio2)
+	width3 := int(width * ratio3)
+	return width1, width2, width3
+}
+
+func getColorFromDistance(distance int, color1, color2, color3, color4 string) string {
+	c1, _ := parseColor(color1)
+	c2, _ := parseColor(color2)
+	c3, _ := parseColor(color3)
+	c4, _ := parseColor(color4)
+	if distance < 170 {
+		return lerpColor(c1, c2, float64(distance)/170)
+	} else if distance < 340 {
+		return lerpColor(c2, c3, float64(distance-170)/170)
+	} else if distance < 510 {
+		return lerpColor(c3, c4, float64(distance-340)/170)
+	} else {
+		return color4
+	}
+}
+
+func calcDistance(b Vertex) int {
+	b.Y = b.Y / 6
+	bSum := 0
+	if b.Y >= 3 {
+		b.Y %= 3
+		bSum += (2 - b.Y) * width
+		if b.Y%2 == 0 {
+			bSum += b.X
+		} else {
+			bSum += width - b.X - 1
+		}
+	} else {
+		b.Y %= 3
+		bSum += b.Y * width
+		if b.Y%2 == 0 {
+			bSum += b.X
+		} else {
+			bSum += width - b.X - 1
+		}
+	}
+	return bSum
+}
+
+func calcHeadVertex(ratio float64) (Vertex, Vertex) {
+	if ratio < 0.33 {
+		w := int(width * ratio * 3)
+		return Vertex{
+				X: w,
+				Y: 0,
+			},
+			Vertex{
+				X: w,
+				Y: 30,
+			}
+	} else if ratio < 0.66 {
+		w := int(width * (ratio - 0.33) * 3)
+		return Vertex{
+				X: width - w,
+				Y: 6,
+			},
+			Vertex{
+				X: width - w,
+				Y: 24,
+			}
+	} else {
+		w := int(width * (ratio - 0.66) * 3)
+		return Vertex{
+				X: w,
+				Y: 12,
+			},
+			Vertex{
+				X: w,
+				Y: 18,
+			}
+	}
+}
+
+func (m *SlideModel) renderHoritontalLineColor(ratio float64, color1, color2, color3, color4 string) {
+	// まずはそれぞれの線の比率を計算する
+	upper, lower := calcHeadVertex(ratio)
+	upperDistance := calcDistance(upper)
+	lowerDistance := calcDistance(lower)
+	width1, width2, width3 := getHorizontalWidths(ratio)
+	m.renderColorWithDistance(ratio, upperDistance, lowerDistance, width1, width2, width3, color1, color2, color3, color4)
+}
+
+func (m *SlideModel) renderLoopBackColor(ratio float64, color1, color2, color3, color4 string) {
+	upper, lower := calcHeadVertex(ratio)
+	upperDistance := calcDistance(upper)
+	lowerDistance := calcDistance(lower)
+	m.renderColorWithDistance(ratio, upperDistance+3*width, lowerDistance+3*width, width, width, width, color1, color2, color3, color4)
+}
+
+func (m *SlideModel) renderColorWithDistance(ratio float64, upperDistance, lowerDistance, width1, width2, width3 int, color1, color2, color3, color4 string) {
+	for y := 0; y < 6; y++ {
+		for x := 0; x < width1; x++ {
+			d := calcDistance(Vertex{
+				X: x, Y: y,
+			})
+			m.foreground[y][x] = termenv.TrueColor.Color(getColorFromDistance(upperDistance-d, color1, color2, color3, color4))
+		}
+	}
+	for y := 30; y < 35; y++ {
+		for x := 0; x < width1; x++ {
+			d := calcDistance(Vertex{
+				X: x, Y: y,
+			})
+			m.foreground[y][x] = termenv.TrueColor.Color(getColorFromDistance(lowerDistance-d, color1, color2, color3, color4))
+		}
+	}
+
+	for y := 6; y < 12; y++ {
+		for x := width - 1; x >= width-width2; x-- {
+			d := calcDistance(Vertex{
+				X: x, Y: y,
+			})
+			m.foreground[y][x] = termenv.TrueColor.Color(getColorFromDistance(upperDistance-d, color1, color2, color3, color4))
+		}
+	}
+	for y := 24; y < 30; y++ {
+		for x := width - 1; x >= width-width2; x-- {
+			d := calcDistance(Vertex{
+				X: x, Y: y,
+			})
+			m.foreground[y][x] = termenv.TrueColor.Color(getColorFromDistance(lowerDistance-d, color1, color2, color3, color4))
+		}
+	}
+
+	for y := 12; y < 18; y++ {
+		for x := 0; x < width3; x++ {
+			d := calcDistance(Vertex{
+				X: x, Y: y,
+			})
+			m.foreground[y][x] = termenv.TrueColor.Color(getColorFromDistance(upperDistance-d, color1, color2, color3, color4))
+		}
+	}
+	for y := 18; y < 24; y++ {
+		for x := 0; x < width3; x++ {
+			d := calcDistance(Vertex{
+				X: x, Y: y,
+			})
+			m.foreground[y][x] = termenv.TrueColor.Color(getColorFromDistance(lowerDistance-d, color1, color2, color3, color4))
 		}
 	}
 }
@@ -387,11 +769,28 @@ func (m *SlideModel) View() string {
 	case Open:
 		m.clearAll()
 		m.renderLogo()
-		m.renderLogoColor()
-		m.renderLines(m.Ratio)
-		m.renderCenter(m.Ratio)
-		m.renderLineColorWithOffset(5*m.Ratio, m.Ratio)
-		m.renderCenterColor(m.Ratio)
+		m.renderLogoBackgroundColor()
+		m.renderLines(m.ratio)
+		m.renderCenter(m.ratio)
+		m.renderLineColorWithOffset(5*m.ratio, m.ratio)
+		m.renderCenterColor(m.ratio)
+	case Progress:
+		m.clearAll()
+		m.renderLogo()
+		m.renderLogoBackgroundColor()
+		m.renderLogoColor(m.ratio, "#8eff8e", "#7fffff", 2*m.ratio)
+	case Horizontal:
+		m.clearAll()
+		m.renderLogo()
+		m.renderLogoBackgroundColor()
+		m.renderLogoColor(1, "#8eff8e", "#7fffff", 2*m.ratio)
+		// 幅6の線をしたから引いていく
+		m.renderHorizontalHeader(m.ratio)
+		m.renderHoritontalLine(m.ratio)
+		m.renderHoritontalLineColor(m.ratio, "#ffff74", "#7fff7f", "#7fbfff", "#252525")
+	case Loopback:
+		m.renderLoopBackColor(m.ratio, "#ffff74", "#7fff7f", "#7fbfff", "#252525")
+
 	}
 
 	b := strings.Builder{}
